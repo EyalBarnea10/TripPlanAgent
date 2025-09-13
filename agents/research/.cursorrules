@@ -1,0 +1,59 @@
+# Cursor Rules for Research Agent Development
+
+## Purpose
+This directory contains the research agent implementation for TripPlanAgent - a specialized AI agent focused on travel research and information gathering.
+
+## Agent Specifications
+- **Role**: Travel Research Specialist
+- **Primary Function**: Comprehensive travel information gathering and analysis
+- **Tools**: Google Serper API, HyperbrowserBrowserUseTool
+- **Output**: Professional, structured travel research reports
+
+## Code Style & Patterns
+- Use CrewAI Agent framework
+- Implement async/await patterns for tool interactions
+- Follow pydantic models for structured data
+- Include proper error handling and logging
+- Use type hints throughout
+
+## Research Agent Behavior
+- Query both Google search and web browsing for each request
+- Combine and synthesize information from multiple sources
+- Resolve conflicts between different data sources
+- Provide confidence scores for information
+- Format responses in structured, professional manner
+
+## Tool Integration Requirements
+1. **Google Serper**: For broad search results and quick facts
+2. **HyperbrowserBrowserUseTool**: For deep website analysis and real-time data
+3. **Data Synthesis**: Always combine results from both tools
+4. **Professional Output**: Structured, actionable travel advice
+
+## Key Implementation Guidelines
+- Each query should use BOTH tools (google-serper + hyperbrowser)
+- Implement result comparison and conflict resolution
+- Include source attribution and confidence levels
+- Handle rate limiting and API errors gracefully
+- Cache results when appropriate
+
+## Example Output Structure
+```python
+{
+    "query": "Best hotels in Paris",
+    "google_results": {...},
+    "web_analysis": {...},
+    "synthesis": "Professional combined analysis",
+    "confidence": 0.85,
+    "sources": ["url1", "url2"],
+    "recommendations": [...]
+}
+```
+
+## Dependencies
+- crewai
+- langchain-community
+- langchain-hyperbrowser
+- langchain-openai
+- pydantic
+- asyncio
+
