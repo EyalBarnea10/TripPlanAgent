@@ -1,4 +1,72 @@
+"""
+🌍 TRAVEL RESEARCH MCP SERVER - INTELLIGENT TRIP PLANNING AGENT
+================================================================
 
+OVERVIEW:
+This MCP (Model Context Protocol) server provides intelligent travel research capabilities
+for trip planning through multiple specialized search tools and AI-powered query optimization.
+
+DESIGN ARCHITECTURE:
+┌─────────────────────────────────────────────────────────────────┐
+│                    TRAVEL RESEARCH MCP SERVER                   │
+├─────────────────────────────────────────────────────────────────┤
+│  Entry Point: research_query(query: str) → comprehensive_results │
+├─────────────────────────────────────────────────────────────────┤
+│                     CORE PROCESSING FLOW                        │
+│  1. Query Optimization (OpenAI LLM)                            │
+│     └── Transforms user query → SEO-optimized search terms     │
+│  2. Intelligent Tool Selection (AI Decision Making)            │
+│     └── Analyzes query → selects optimal search strategy       │
+│  3. Multi-Source Data Retrieval                               │
+│     ├── Web Search (Serper API) → guides, reviews, articles   │
+│     ├── Places Search (Serper Places) → locations, businesses │
+│     └── Browser Automation (Hyperbrowser) → detailed scraping │
+│  4. Result Synthesis and Formatting                           │
+│     └── Combines all sources → structured travel insights     │
+└─────────────────────────────────────────────────────────────────┘
+
+TECHNICAL STACK:
+- FastMCP: Model Context Protocol server framework
+- OpenAI GPT: Query optimization and intelligent decision making
+- Google Serper API: Web search and places data
+- Hyperbrowser: Advanced web scraping and automation
+- LangChain: AI tool orchestration and management
+
+SUPPORTED SEARCH TYPES:
+1. WEB SEARCH - General travel information, guides, reviews, recommendations
+2. PLACES SEARCH - Specific locations, hotels, restaurants, attractions
+3. BROWSER SEARCH - Detailed extraction, real-time pricing, booking info
+4. COMPREHENSIVE - All three sources for complete research coverage
+
+API ENDPOINTS (MCP Tools):
+- research_query(query) - Main entry point for travel research
+- web_search_tool(query) - Direct web search functionality
+- places_search_tool(query) - Direct places search functionality
+- browser_search_tool(query) - Direct browser automation
+- optimize_search_query(query) - Query optimization only
+- intelligent_search(query) - Smart tool selection + execution
+
+ENVIRONMENT REQUIREMENTS:
+- OPENAI_API_KEY: For LLM-powered query optimization and decisions
+- SERPER_API_KEY: For Google search and places API access
+- HYPERBROWSER_API_KEY: For advanced web scraping capabilities
+
+USAGE FLOW FOR TRIP PLANNING:
+Step 1: Input raw travel query (e.g., "summer vacation solo adult Europe")
+Step 2: AI optimizes query for search engines
+Step 3: System selects appropriate search tools based on query type
+Step 4: Executes searches across multiple data sources
+Step 5: Returns comprehensive, structured travel recommendations
+
+EXAMPLES:
+- "best summer destinations solo travel" → comprehensive destination analysis
+- "hotels near Eiffel Tower Paris" → places search with specific accommodations
+- "travel guides Croatia safety budget" → web search for detailed articles
+
+This server acts as the first step in intelligent trip planning, providing
+comprehensive research capabilities that can be integrated into larger
+travel planning workflows and AI assistants.
+"""
 
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_hyperbrowser import HyperbrowserBrowserUseTool
@@ -7,16 +75,7 @@ from fastmcp import FastMCP
 from dotenv import load_dotenv
 import os
 import requests
-import json  
-from crewai import Agent, Task, Crew
-from datetime import datetime
-from fastmcp.settings import ExperimentalSettings
-from mcp import StdioServerParameters
-from crewai_tools import MCPServerAdapter
-
-
-
-
+import json 
 
 # Load environment variables first
 load_dotenv()
@@ -101,46 +160,6 @@ def _browser_search_internal(query: str) -> str:
         return browser_tool.run(search_instruction)
     except Exception as e:
         return f"Browser search error: {str(e)}"
-
-#Create main tool inside of it agent in crewai that will runn the research agent
-@mcp.tool()
-def research_agent(query: str) -> str:
-
-    """
-    The user prompt is received here initially.
-    This agent executes the entire process. It can utilize the following tools:
-    - web_search_tool
-    - places_search_tool
-    - browser_search_tool
-    - optimize_search_query
-    - intelligent_search
-
-    Begin with a concise checklist (3-7 bullets) outlining the steps to complete the task;
-    keep items conceptual, 
-    not implementation-level.
-
-    Use only the listed tools. Before any significant tool call, briefly state the purpose and minimal required inputs.
-
-    After gathering results, validate completeness and accuracy of the collected information in 1-2 lines before proceeding to summary creation. If validation fails, self-correct as needed.
-
-    The agent runs all tools, gathers their results, and forwards them to another tool responsible for creating a comprehensive summary. This summary is then returned to the user.
-    """
- 
-    agent=Agent(
-        role="Travel Research Specialist",
-        goal="Comprehensive travel information gathering and analysis",
-        tools=[web_search_tool, places_search_tool, browser_search_tool],
-        verbose=True)
-
-    task = Task(
-        description="Research the given query",
-        agent=agent,
-        verbose=True)
-    
-    crew = Crew(agents=[agent], tasks=[task], verbose=True) 
-    result = crew.run()
-    return result
-
 
 # Create 3 travel research tools using MCP decorators
 @mcp.tool()
