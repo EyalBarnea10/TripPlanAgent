@@ -102,11 +102,14 @@ def _browser_search_internal(query: str) -> str:
     except Exception as e:
         return f"Browser search error: {str(e)}"
 
-#Create main tool inside of it agent in crewai that will runn the research agent
+# ============================================================================
+# MAIN MCP TOOL - ONLY EXPOSED ENDPOINT
+# ============================================================================
 @mcp.tool()
 def research_agent(query: str) -> str:
-
     """
+    Main entry point for travel research. This is the ONLY exposed MCP tool.
+    
     The user prompt is received here initially.
     This agent executes the entire process. It can utilize the following tools:
     - web_search_tool
@@ -133,38 +136,34 @@ def research_agent(query: str) -> str:
         verbose=True)
 
     task = Task(
-        description="Research the given query",
+        description=query,
         agent=agent,
+        reasoning_effort="high",  # Deep reasoning for comprehensive travel research
         verbose=True)
     
     crew = Crew(agents=[agent], tasks=[task], verbose=True) 
-    result = crew.run()
+    result = crew.kickoff()
     return result
 
 
-# Create 3 travel research tools using MCP decorators
-@mcp.tool()
+# Internal tool functions (not exposed via MCP - only used by research_agent)
 def web_search_tool(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
-@mcp.tool()
 def places_search_tool(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
-@mcp.tool()
 def browser_search_tool(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
     return _browser_search_internal(search_query)
 
 
-@mcp.tool()
 def optimize_search_query(user_query: str) -> str:
     """Optimize and refactor user query for better Serper Google search results"""
     return _optimize_query_internal(user_query)
 
-@mcp.tool()
 def intelligent_search(optimized_query: str) -> str:
     """Analyze the query and decide which search tool to use, then execute it """
     try:
@@ -221,7 +220,6 @@ def intelligent_search(optimized_query: str) -> str:
     except Exception as e:
         return f"Error in intelligent search: {str(e)}"
 
-@mcp.tool()
 def research_query(query: str) -> str:
     """Research the given query using multiple advanced tools: Google Serper API, Places search, and Hyperbrowser automation.
      First optimizes the query, then intelligently selects and executes the most appropriate search tools for comprehensive results."""
