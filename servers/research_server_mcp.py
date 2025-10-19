@@ -13,6 +13,7 @@ from datetime import datetime
 from fastmcp.settings import ExperimentalSettings
 from mcp import StdioServerParameters
 from crewai_tools import MCPServerAdapter
+from crewai_tools import tool
 
 
 
@@ -132,6 +133,7 @@ def research_agent(query: str) -> str:
     agent=Agent(
         role="Travel Research Specialist",
         goal="Comprehensive travel information gathering and analysis",
+        backstory="Expert travel researcher with deep knowledge of destinations, accommodations, pricing, and travel planning. Specializes in providing detailed, accurate, and helpful travel recommendations.",
         tools=[web_search_tool, places_search_tool, browser_search_tool],
         verbose=True)
 
@@ -147,14 +149,18 @@ def research_agent(query: str) -> str:
 
 
 # Internal tool functions (not exposed via MCP - only used by research_agent)
+# Decorated with @tool for CrewAI compatibility
+@tool
 def web_search_tool(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
+@tool
 def places_search_tool(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
+@tool
 def browser_search_tool(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
     return _browser_search_internal(search_query)
