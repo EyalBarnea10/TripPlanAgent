@@ -3,6 +3,7 @@
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_hyperbrowser import HyperbrowserBrowserUseTool
 from langchain_openai import ChatOpenAI
+from langchain.tools import Tool
 from fastmcp import FastMCP   
 from dotenv import load_dotenv
 import os
@@ -12,8 +13,6 @@ from crewai import Agent, Task, Crew
 from datetime import datetime
 from fastmcp.settings import ExperimentalSettings
 from mcp import StdioServerParameters
-from crewai_tools import MCPServerAdapter
-from crewai_tools import tool
 
 
 
@@ -149,21 +148,36 @@ def research_agent(query: str) -> str:
 
 
 # Internal tool functions (not exposed via MCP - only used by research_agent)
-# Decorated with @tool for CrewAI compatibility
-@tool
-def web_search_tool(search_query: str) -> str:
+def _web_search_func(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
-@tool
-def places_search_tool(search_query: str) -> str:
+def _places_search_func(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
-@tool
-def browser_search_tool(search_query: str) -> str:
+def _browser_search_func(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
     return _browser_search_internal(search_query)
+
+# Create LangChain Tool objects for CrewAI compatibility
+web_search_tool = Tool(
+    name="web_search_tool",
+    func=_web_search_func,
+    description="Search the web for travel guides, reviews, and general information"
+)
+
+places_search_tool = Tool(
+    name="places_search_tool",
+    func=_places_search_func,
+    description="Search for specific places, hotels, restaurants, and attractions"
+)
+
+browser_search_tool = Tool(
+    name="browser_search_tool",
+    func=_browser_search_func,
+    description="Use advanced browser automation to search and extract detailed information from websites"
+)
 
 
 def optimize_search_query(user_query: str) -> str:
