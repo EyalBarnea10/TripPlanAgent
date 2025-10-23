@@ -3,7 +3,6 @@
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_hyperbrowser import HyperbrowserBrowserUseTool
 from langchain_openai import ChatOpenAI
-from langchain.tools import Tool
 from fastmcp import FastMCP   
 from dotenv import load_dotenv
 import os
@@ -13,6 +12,8 @@ from crewai import Agent, Task, Crew
 from datetime import datetime
 from fastmcp.settings import ExperimentalSettings
 from mcp import StdioServerParameters
+from crewai_tools import MCPServerAdapter
+from crewai_tools import tool
 
 
 
@@ -110,74 +111,224 @@ def research_agent(query: str) -> str:
     """
     Main entry point for travel research. This is the ONLY exposed MCP tool.
     
-    The user prompt is received here initially.
-    This agent executes the entire process. It can utilize the following tools:
-    - web_search_tool
-    - places_search_tool
-    - browser_search_tool
-    - optimize_search_query
-    - intelligent_search
-
-    Begin with a concise checklist (3-7 bullets) outlining the steps to complete the task;
-    keep items conceptual, 
-    not implementation-level.
-
-    Use only the listed tools. Before any significant tool call, briefly state the purpose and minimal required inputs.
-
-    After gathering results, validate completeness and accuracy of the collected information in 1-2 lines before proceeding to summary creation. If validation fails, self-correct as needed.
-
-    The agent runs all tools, gathers their results, and forwards them to another tool responsible for creating a comprehensive summary. This summary is then returned to the user.
-    """
- 
-    agent=Agent(
-        role="Travel Research Specialist",
-        goal="Comprehensive travel information gathering and analysis",
-        backstory="Expert travel researcher with deep knowledge of destinations, accommodations, pricing, and travel planning. Specializes in providing detailed, accurate, and helpful travel recommendations.",
-        tools=[web_search_tool, places_search_tool, browser_search_tool],
-        verbose=True)
-
-    task = Task(
-        description=query,
-        agent=agent,
-        reasoning_effort="high",  # Deep reasoning for comprehensive travel research
-        verbose=True)
+    Uses a multi-agent architecture with specialized agents:
+    - Web Search Agent: Specializes in finding travel guides and articles
+    - Places Agent: Expert in discovering locations, hotels, restaurants
+    - Browser Agent: Advanced web scraping specialist
+    - Synthesis Agent: Combines all findings into actionable report
     
-    crew = Crew(agents=[agent], tasks=[task], verbose=True) 
+    All search agents run in PARALLEL for maximum efficiency.
+    """
+    
+    # Progress tracking
+    status_updates = []
+    
+    def log_status(message: str):
+        status_updates.append(f"🔄 {message}")
+        return message
+    
+    # ========================================================================
+    # SPECIALIZED AGENTS - Each with specific expertise and single tool
+    # ========================================================================
+    
+    log_status("Initializing Web Search Agent...")
+    web_search_agent = Agent(
+        role="Web Search Specialist",
+        goal="Find comprehensive travel guides, articles, blogs, and expert reviews",
+        backstory="""You are an expert at finding high-quality travel content on the web.
+        You specialize in discovering travel guides, expert reviews, travel blogs, 
+        destination overviews, and general travel information. You know how to extract 
+        the most relevant and trustworthy web content.""",
+        tools=[web_search_tool],
+        verbose=True,
+        allow_delegation=False)
+    
+    log_status("Initializing Places Search Agent...")
+    places_search_agent = Agent(
+        role="Places & Location Expert",
+        goal="Discover specific places, hotels, restaurants, attractions with ratings and reviews",
+        backstory="""You are a location intelligence expert specializing in finding 
+        specific venues and establishments. You excel at discovering hotels, restaurants, 
+        tourist attractions, local businesses, and hidden gems. You always include 
+        ratings, reviews, addresses, and practical details.""",
+        tools=[places_search_tool],
+        verbose=True,
+        allow_delegation=False)
+    
+    log_status("Initializing Browser Automation Agent...")
+    browser_agent = Agent(
+        role="Advanced Web Scraping Specialist",
+        goal="Extract detailed information from websites including pricing, availability, and deep content",
+        backstory="""You are an advanced web scraping expert with deep knowledge of 
+        browser automation. You can navigate complex websites, extract pricing information, 
+        check availability, read detailed reviews, and gather information that requires 
+        interaction with web pages. You're meticulous and thorough.""",
+        tools=[browser_search_tool],
+        verbose=True,
+        allow_delegation=False)
+    
+    log_status("Initializing Synthesis Agent...")
+    synthesis_agent = Agent(
+        role="Travel Research Synthesizer",
+        goal="Combine multiple research sources into clear, actionable travel recommendations",
+        backstory="""You are an expert travel analyst who excels at synthesizing 
+        information from multiple sources. You create comprehensive, well-organized 
+        travel reports that are both informative and actionable. You highlight key 
+        insights, practical tips, and make complex information easy to understand.""",
+        tools=[],  # No tools - only synthesizes
+        verbose=True,
+        allow_delegation=False)
+    
+    # ========================================================================
+    # PARALLEL TASKS - Each agent runs independently and simultaneously
+    # ========================================================================
+    
+    log_status("Creating Web Search Task...")
+    web_task = Task(
+        description=f"""Search the web for comprehensive travel information about: {query}
+        
+        Think deeply about:
+        - What search queries will yield the BEST results?
+        - Which sources are most credible and relevant?
+        - What information gaps exist that need multiple searches?
+        - How to filter out low-quality or outdated content?
+        
+        Focus on finding:
+        - Travel guides and destination overviews
+        - Expert articles and travel blogs
+        - General reviews and recommendations
+        - Travel tips and practical advice
+        
+        Use web_search_tool strategically. Consider multiple searches if needed.""",
+        agent=web_search_agent,
+        expected_output="Detailed web search results with travel guides, reviews, and expert recommendations",
+        async_execution=True,  # ✅ Runs in parallel
+        reasoning_effort="high")  # ✅ Deep thinking for better search strategy
+    
+    log_status("Creating Places Search Task...")
+    places_task = Task(
+        description=f"""Search for specific places, hotels, restaurants, and attractions related to: {query}
+        
+        Think strategically about:
+        - What types of establishments best match the user's needs?
+        - Which neighborhoods or areas to prioritize?
+        - How to balance ratings, reviews, and practical factors?
+        - What price ranges and categories are most relevant?
+        
+        Focus on finding:
+        - Specific hotels with ratings and prices
+        - Restaurants and dining options
+        - Tourist attractions and activities
+        - Local businesses and services
+        
+        Use places_search_tool intelligently. Consider multiple targeted searches.""",
+        agent=places_search_agent,
+        expected_output="List of specific places with ratings, reviews, addresses, and practical details",
+        async_execution=True,  # ✅ Runs in parallel
+        reasoning_effort="high")  # ✅ Deep thinking for better place selection
+    
+    log_status("Creating Browser Automation Task...")
+    browser_task = Task(
+        description=f"""Use advanced browser automation to extract detailed information about: {query}
+        
+        Think carefully about:
+        - Which websites have the most accurate and current information?
+        - What specific data points are most valuable to extract?
+        - How to navigate complex booking sites efficiently?
+        - What patterns in reviews indicate quality and reliability?
+        
+        Focus on extracting:
+        - Current pricing and availability
+        - Detailed website content
+        - Booking information and options
+        - User reviews and ratings from actual sites
+        
+        Use browser_search_tool strategically for maximum value extraction.""",
+        agent=browser_agent,
+        expected_output="Detailed extracted information including current prices, availability, and deep content",
+        async_execution=True,  # ✅ Runs in parallel
+        reasoning_effort="high")  # ✅ Deep thinking for better extraction strategy
+    
+    # ========================================================================
+    # SYNTHESIS TASK - Waits for all parallel tasks to complete
+    # ========================================================================
+    
+    log_status("Creating Synthesis Task...")
+    synthesis_task = Task(
+        description=f"""Synthesize all gathered research data into a comprehensive travel recommendation for: {query}
+        
+        You will receive:
+        1. Web search results (travel guides, articles, expert reviews)
+        2. Places data (specific hotels, restaurants, attractions with ratings)
+        3. Browser-extracted data (pricing, availability, detailed content)
+        
+        Create a well-structured report with these sections:
+        
+        ## 🌍 Destination Overview
+        - Brief introduction and highlights
+        - Best time to visit
+        - Key attractions
+        
+        ## 🏨 Recommended Accommodations
+        - Top hotel options with ratings and prices
+        - Location and accessibility info
+        
+        ## 🍽️ Dining & Cuisine
+        - Best restaurants and local food
+        - Price ranges and specialties
+        
+        ## 🎯 Activities & Attractions
+        - Must-see places and experiences
+        - Booking info where available
+        
+        ## 💡 Practical Tips
+        - Budget considerations
+        - Safety information
+        - Transportation options
+        - Insider tips
+        
+        Make it actionable, well-organized, and easy to understand.""",
+        agent=synthesis_agent,
+        expected_output="Comprehensive, well-organized travel recommendation report",
+        context=[web_task, places_task, browser_task],  # ✅ Waits for all to complete
+        reasoning_effort="high")
+    
+    # ========================================================================
+    # CREW EXECUTION - Orchestrates all agents
+    # ========================================================================
+    
+    log_status("Assembling research crew...")
+    crew = Crew(
+        agents=[web_search_agent, places_search_agent, browser_agent, synthesis_agent],
+        tasks=[web_task, places_task, browser_task, synthesis_task],
+        verbose=True,
+        process="sequential"  # Sequential process allows async tasks to run in parallel
+    )
+    
+    log_status("🚀 Launching parallel research (3 agents working simultaneously)...")
     result = crew.kickoff()
-    return result
+    log_status("✅ All agents completed! Report synthesized.")
+    
+    # Return result with progress log
+    status_log = "\n".join(status_updates)
+    return f"{status_log}\n\n{'='*80}\n📊 FINAL RESEARCH REPORT\n{'='*80}\n\n{result}"
 
 
 # Internal tool functions (not exposed via MCP - only used by research_agent)
-def _web_search_func(search_query: str) -> str:
+@tool
+def web_search_tool(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
-def _places_search_func(search_query: str) -> str:
+@tool
+def places_search_tool(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
-def _browser_search_func(search_query: str) -> str:
+@tool
+def browser_search_tool(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
     return _browser_search_internal(search_query)
-
-# Create LangChain Tool objects for CrewAI compatibility
-web_search_tool = Tool(
-    name="web_search_tool",
-    func=_web_search_func,
-    description="Search the web for travel guides, reviews, and general information"
-)
-
-places_search_tool = Tool(
-    name="places_search_tool",
-    func=_places_search_func,
-    description="Search for specific places, hotels, restaurants, and attractions"
-)
-
-browser_search_tool = Tool(
-    name="browser_search_tool",
-    func=_browser_search_func,
-    description="Use advanced browser automation to search and extract detailed information from websites"
-)
 
 
 def optimize_search_query(user_query: str) -> str:
