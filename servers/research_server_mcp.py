@@ -3,7 +3,6 @@
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_hyperbrowser import HyperbrowserBrowserUseTool
 from langchain_openai import ChatOpenAI
-from langchain.tools import Tool
 from fastmcp import FastMCP   
 from dotenv import load_dotenv
 import os
@@ -13,6 +12,8 @@ from crewai import Agent, Task, Crew
 from datetime import datetime
 from fastmcp.settings import ExperimentalSettings
 from mcp import StdioServerParameters
+from crewai_tools import MCPServerAdapter
+from crewai.tools import tool
 
 
 
@@ -108,76 +109,85 @@ def _browser_search_internal(query: str) -> str:
 @mcp.tool()
 def research_agent(query: str) -> str:
     """
-    Main entry point for travel research. This is the ONLY exposed MCP tool.
+    Fast travel research agent - optimized for quick results.
     
-    The user prompt is received here initially.
-    This agent executes the entire process. It can utilize the following tools:
-    - web_search_tool
-    - places_search_tool
-    - browser_search_tool
-    - optimize_search_query
-    - intelligent_search
-
-    Begin with a concise checklist (3-7 bullets) outlining the steps to complete the task;
-    keep items conceptual, 
-    not implementation-level.
-
-    Use only the listed tools. Before any significant tool call, briefly state the purpose and minimal required inputs.
-
-    After gathering results, validate completeness and accuracy of the collected information in 1-2 lines before proceeding to summary creation. If validation fails, self-correct as needed.
-
-    The agent runs all tools, gathers their results, and forwards them to another tool responsible for creating a comprehensive summary. This summary is then returned to the user.
+    Searches web content and places/locations to provide comprehensive
+    travel information including hotels, restaurants, attractions, and tips.
+    
+    Args:
+        query: Your travel question or destination
+    
+    Returns:
+        Comprehensive travel research results
     """
- 
-    agent=Agent(
-        role="Travel Research Specialist",
-        goal="Comprehensive travel information gathering and analysis",
-        backstory="Expert travel researcher with deep knowledge of destinations, accommodations, pricing, and travel planning. Specializes in providing detailed, accurate, and helpful travel recommendations.",
-        tools=[web_search_tool, places_search_tool, browser_search_tool],
-        verbose=True)
-
-    task = Task(
-        description=query,
-        agent=agent,
-        reasoning_effort="high",  # Deep reasoning for comprehensive travel research
-        verbose=True)
-    
-    crew = Crew(agents=[agent], tasks=[task], verbose=True) 
-    result = crew.kickoff()
-    return result
+    try:
+        # Step 1: Optimize query for better search results
+        optimized_query = query
+        try:
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if openai_key and len(openai_key.strip()) > 0:
+                system_prompt = """You are a travel research expert. Optimize this query for Google search.
+                Return ONLY the optimized search query - no explanations."""
+                
+                response = llm.invoke([
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f'Query: "{query}"\nOptimized:'}
+                ])
+                optimized_query = response.content.strip()
+        except:
+            pass  # Use original if optimization fails
+        
+        # Step 2: Execute fast searches
+        results = []
+        results.append(f"Travel Research Results for: {query}")
+        results.append("=" * 80)
+        results.append(f"Optimized Search: {optimized_query}\n")
+        
+        # Web search for guides and articles
+        results.append("\n" + "=" * 80)
+        results.append("WEB SEARCH - Travel Guides & Articles")
+        results.append("=" * 80)
+        try:
+            web_result = _web_search_internal(optimized_query)
+            results.append(web_result)
+        except Exception as e:
+            results.append(f"Web search error: {str(e)}")
+        
+        # Places search for specific locations
+        results.append("\n\n" + "=" * 80)
+        results.append("PLACES & LOCATIONS - Hotels, Restaurants, Attractions")
+        results.append("=" * 80)
+        try:
+            places_result = _places_search_internal(optimized_query)
+            results.append(places_result)
+        except Exception as e:
+            results.append(f"Places search error: {str(e)}")
+        
+        results.append("\n\n" + "=" * 80)
+        results.append("Research Complete!")
+        results.append("=" * 80)
+        
+        return "\n".join(results)
+        
+    except Exception as e:
+        return f"Error in research_agent: {str(e)}"
 
 
 # Internal tool functions (not exposed via MCP - only used by research_agent)
-def _web_search_func(search_query: str) -> str:
+@tool
+def web_search_tool(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
-def _places_search_func(search_query: str) -> str:
+@tool
+def places_search_tool(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
-def _browser_search_func(search_query: str) -> str:
+@tool
+def browser_search_tool(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
     return _browser_search_internal(search_query)
-
-# Create LangChain Tool objects for CrewAI compatibility
-web_search_tool = Tool(
-    name="web_search_tool",
-    func=_web_search_func,
-    description="Search the web for travel guides, reviews, and general information"
-)
-
-places_search_tool = Tool(
-    name="places_search_tool",
-    func=_places_search_func,
-    description="Search for specific places, hotels, restaurants, and attractions"
-)
-
-browser_search_tool = Tool(
-    name="browser_search_tool",
-    func=_browser_search_func,
-    description="Use advanced browser automation to search and extract detailed information from websites"
-)
 
 
 def optimize_search_query(user_query: str) -> str:
