@@ -173,23 +173,17 @@ def research_agent(query: str) -> str:
         return f"Error in research_agent: {str(e)}"
 
 
-# Internal tool functions (not exposed via MCP - only used by research_agent)
-@tool
-def web_search_tool(search_query: str) -> str:
 @tool
 def web_search_tool(search_query: str) -> str:
     """Search the web for travel guides, reviews, and general information"""
     return _web_search_internal(search_query)
 
-@tool
-def places_search_tool(search_query: str) -> str:
+
 @tool
 def places_search_tool(search_query: str) -> str:
     """Search for specific places, hotels, restaurants, and attractions"""
     return _places_search_internal(search_query)
 
-@tool
-def browser_search_tool(search_query: str) -> str:
 @tool
 def browser_search_tool(search_query: str) -> str:
     """Use advanced browser automation to search and extract detailed information from websites"""
