@@ -1,27 +1,39 @@
-# TripPlanAgent - Intelligent Travel Research MCP Server
+# TripPlanAgent - Intelligent Travel Planning & Booking MCP Servers
 
-An advanced Model Context Protocol (MCP) server for comprehensive travel research, powered by AI and multiple search APIs.
+An advanced Model Context Protocol (MCP) system for comprehensive travel research, flight search, and booking capabilities, powered by AI and multiple travel APIs.
 
 ## 📋 Overview
 
-TripPlanAgent is an intelligent travel research system that provides comprehensive travel information through a unified MCP interface. It leverages AI-powered query optimization and multiple data sources to deliver actionable travel insights for destinations, accommodations, restaurants, and attractions.
+TripPlanAgent is an intelligent travel planning system that provides comprehensive travel services through unified MCP interfaces. It leverages AI-powered query optimization, real-time flight data, and multiple data sources to deliver complete travel planning from destination research to flight booking.
+
+### 🎯 Two-Phase System
+
+1. **Phase 1: Travel Research Agent** (`research_server_mcp.py`)
+   - Destination research and recommendations
+   - Hotels, restaurants, and attractions discovery
+   - Travel guides and expert insights
+
+2. **Phase 2: Flight Booking Agent** (`flights_booking_mcp.py`) ✨ NEW
+   - Real-time flight search across 400+ airlines
+   - Airport code lookup
+   - Multi-city and round-trip support
+   - Powered by Amadeus API
 
 ## ✨ Key Features
 
-### 🔍 Multi-Source Research
-- **Web Search**: Travel guides, blogs, and expert recommendations via Google Serper API
-- **Places Search**: Hotels, restaurants, attractions with ratings and reviews
-- **Browser Automation**: Real-time pricing and detailed information extraction using Hyperbrowser
+### 📍 Travel Research Agent
+- **🔍 Multi-Source Research**: Web search, places data, and browser automation
+- **🧠 AI-Powered Intelligence**: Query optimization and intelligent search selection
+- **⚡ Fast & Efficient**: Parallel execution and error-resilient design
+- **🏨 Comprehensive Data**: Hotels, restaurants, attractions with ratings
 
-### 🧠 AI-Powered Intelligence
-- **Query Optimization**: Automatically refines user queries for better search results using OpenAI
-- **Intelligent Search Selection**: AI decides which search tools to use based on query context
-- **Comprehensive Analysis**: Combines multiple data sources for complete travel insights
-
-### ⚡ Fast & Efficient
-- Parallel search execution where possible
-- Optimized for quick response times
-- Error-resilient with graceful fallbacks
+### ✈️ Flight Booking Agent (NEW)
+- **🛫 Real-Time Flight Search**: Live pricing from 400+ airlines worldwide
+- **🌍 Global Coverage**: 190+ countries, all major airports
+- **🎫 Flexible Options**: One-way, round-trip, multi-city support
+- **💺 Travel Classes**: Economy, Premium, Business, First class
+- **🔍 Airport Discovery**: Find IATA codes by city or airport name
+- **💰 Competitive Pricing**: Powered by Amadeus GDS platform
 
 ## 🏗️ Architecture
 
@@ -72,13 +84,27 @@ pip install -r requirements.txt
 
 Create a `.env` file in the project root:
 ```env
+# Required for Research Agent
 OPENAI_API_KEY=your_openai_api_key_here
 SERPER_API_KEY=your_serper_api_key_here
+
+# Required for Flight Booking Agent (optional)
+AMADEUS_API_KEY=your_amadeus_api_key_here
+AMADEUS_API_SECRET=your_amadeus_api_secret_here
 ```
 
-4. **Run the MCP server**
+**Get Amadeus API credentials** (for flight booking):
+- Visit [https://developers.amadeus.com/](https://developers.amadeus.com/)
+- Register and create a new app (free tier available)
+- See [FLIGHT_BOOKING_SETUP.md](./FLIGHT_BOOKING_SETUP.md) for detailed instructions
+
+4. **Run the MCP servers**
 ```bash
+# Run Research Agent
 python servers/research_server_mcp.py
+
+# Run Flight Booking Agent
+python servers/flights_booking_mcp.py
 ```
 
 ## 📦 Dependencies
@@ -93,7 +119,7 @@ python servers/research_server_mcp.py
 
 ## 🔧 Usage
 
-### As an MCP Server
+### As MCP Servers
 
 Configure in your MCP client (e.g., Cursor AI, Claude Desktop):
 
@@ -107,6 +133,14 @@ Configure in your MCP client (e.g., Cursor AI, Claude Desktop):
         "OPENAI_API_KEY": "your_key_here",
         "SERPER_API_KEY": "your_key_here"
       }
+    },
+    "flights_booking_mcp": {
+      "command": "python",
+      "args": ["c:/ai_for_developer/TripPlanAgent/servers/flights_booking_mcp.py"],
+      "env": {
+        "AMADEUS_API_KEY": "your_amadeus_key",
+        "AMADEUS_API_SECRET": "your_amadeus_secret"
+      }
     }
   }
 }
@@ -114,12 +148,27 @@ Configure in your MCP client (e.g., Cursor AI, Claude Desktop):
 
 ### Example Queries
 
+**Research Agent:**
 ```python
-# Through MCP client:
+# Destination and accommodation research
 research_agent("Best budget hotels in Paris near Eiffel Tower")
 research_agent("summer travel destinations for solo travelers")
 research_agent("family-friendly restaurants in Tokyo")
-research_agent("adventure activities in Switzerland")
+research_agent("Naples Italy March trip with teenagers")
+```
+
+**Flight Booking Agent:**
+```python
+# Find airport codes
+find_airports("Naples")
+find_airports("New York")
+
+# Search flights
+search_flights("JFK", "NAP", "2025-03-15", "2025-03-22", 2, "ECONOMY")
+search_flights("LAX", "FCO", "2025-06-01", None, 1, "BUSINESS")  # One-way
+
+# Get help
+flight_booking_help()
 ```
 
 ## 🎯 Use Cases
@@ -165,16 +214,19 @@ This server represents **Phase 1** of a complete trip planning workflow:
 ```
 TripPlanAgent/
 ├── servers/
-│   └── research_server_mcp.py      # Main MCP server
+│   ├── research_server_mcp.py      # Travel Research MCP server
+│   └── flights_booking_mcp.py      # Flight Booking MCP server (NEW)
 ├── agents/
 │   └── research/
 │       ├── research_agent.py       # Research agent implementation
 │       └── agent_ruls.txt          # Agent behavior rules
-├── client.py                        # MCP client (optional)
-├── test_research_agent.py          # Test suite
+├── test_research_agent.py          # Research agent test suite
+├── test_flight_booking.py          # Flight booking test suite (NEW)
+├── naples_research_simple.py       # Example: Naples trip research
 ├── requirements.txt                # Python dependencies
-├── qa_expert_rules.txt             # QA guidelines
-└── README.md                       # This file
+├── README.md                       # Main documentation
+├── FLIGHT_BOOKING_SETUP.md         # Flight booking setup guide (NEW)
+└── qa_expert_rules.txt             # QA guidelines
 ```
 
 ## 🔒 Security & Best Practices
